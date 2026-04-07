@@ -493,6 +493,21 @@ TEST_CASE("views swap") {
   CHECK_THAT(ct::BitSet(view2), BitSetEqualsString(str_1));
 }
 
+TEST_CASE("non const views swap") {
+  std::string str_1 = "10101101001101100100101110111000001010101110101010100000100101001101010001101011";
+  std::string str_2 = "10111011111000111100100101000100100100010101000000100000101111100111000011010111";
+  ct::BitSet bs_1("0000" + str_1 + "1111");
+  ct::BitSet bs_2("111" + str_2 + "000");
+
+  ct::BitSet::View view1 = bs_1.subview(4, 80);
+  ct::BitSet::View view2 = bs_2.subview(3, 80);
+
+  swap(view1, view2);
+
+  CHECK_THAT(ct::BitSet(view1), BitSetEqualsString(str_2));
+  CHECK_THAT(ct::BitSet(view2), BitSetEqualsString(str_1));
+}
+
 TEST_CASE("bitset::all/any/count") {
   SECTION("empty") {
     const ct::BitSet bs;
