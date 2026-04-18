@@ -1,9 +1,9 @@
 #pragma once
 
-
-#include "bitset-reference.h"
 #include "bitset-iterator.h"
+#include "bitset-reference.h"
 #include "bitset-view.h"
+
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -31,7 +31,6 @@ public:
 
   BitSet(ConstIterator first, ConstIterator last);
 
-
   BitSet& operator=(const BitSet& other) &;
   BitSet& operator=(std::string_view str) &;
   BitSet& operator=(const ConstView& other) &;
@@ -54,7 +53,6 @@ public:
   friend BitSet operator&(const BitSet& lhs, const BitSet& rhs);
   friend BitSet operator^(const BitSet& lhs, const BitSet& rhs);
   friend BitSet operator|(const BitSet& lhs, const BitSet& rhs);
-
 
   BitSet& operator&=(const ConstView& other) &;
   BitSet& operator|=(const ConstView& other) &;
@@ -80,10 +78,11 @@ public:
 
   View subview(std::size_t offset = 0, std::size_t count = NPOS);
   ConstView subview(std::size_t offset = 0, std::size_t count = NPOS) const;
+
 private:
   size_t _size;
   Word* _data;
 };
 
-  void swap(BitSet& lhs, BitSet& rhs);
+void swap(BitSet& lhs, BitSet& rhs);
 } // namespace ct
