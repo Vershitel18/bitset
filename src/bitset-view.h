@@ -2,6 +2,7 @@
 #include "bitset-iterator.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -22,8 +23,6 @@ public:
   using View = BitSetView;
   using const_view = BitSetView<ConstIterator>;
   static constexpr std::size_t NPOS = std::numeric_limits<std::size_t>::max();
-  // using value_type = std::iterator_traits<Iterator>::value_type;
-  // using difference_type = typename std::iterator_traits<Iterator>::difference_type;
 
   BitSetView() = default;
   // BitSetView(BitsetIterator<const unsigned long> bs, size_t end);
@@ -283,12 +282,19 @@ public:
     auto end_idx1 = this->end().bit_offset();
 
     auto get_rhs_word = [&](auto p) -> Word {
-      if (idx1 == idx2) {
-        return *p;
+      const int shift = static_cast<int>(idx2) - static_cast<int>(idx1);
+
+      Word cur = *p;
+
+      Word next = 0;
+      if ((p + 1) != other.end().word_ptr()) {
+        next = *(p + 1);
       }
-      Word low = (*p >> abs(idx1 - idx2));
-      Word high = (*(p + 1) << (64 - abs(idx1 - idx2)));
-      return low | high;
+
+      if (shift == 0) {
+        return cur;
+      }
+      return (cur >> shift) | (next << (64 - shift));
     };
 
     if (ptr1 == end_ptr1) {

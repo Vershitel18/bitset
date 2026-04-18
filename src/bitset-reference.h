@@ -24,6 +24,7 @@ public:
   }
 
   BitsetReference(const BitsetReference& other) = default;
+  BitsetReference& operator=(const BitsetReference& other) = default;
 
   BitsetReference& operator=(const bool b) {
     if (b) {

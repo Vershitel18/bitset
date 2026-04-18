@@ -2,11 +2,8 @@
 #include "bitset-reference.h"
 
 #include <cstddef>
+#include <iterator>
 #include <type_traits>
-
-namespace std {
-struct random_access_iterator_tag;
-} // namespace std
 
 namespace ct {
 template <typename Word>
