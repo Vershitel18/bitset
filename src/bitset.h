@@ -1,6 +1,11 @@
 #pragma once
 
+
+#include "bitset-reference.h"
+#include "bitset-iterator.h"
+#include "bitset-view.h"
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 
 namespace ct {
@@ -8,13 +13,13 @@ namespace ct {
 class BitSet {
 public:
   using Value = bool;
-  using Reference = void;
-  using ConstReference = void;
-  using Iterator = void;
-  using ConstIterator = void;
-  using View = void;
-  using ConstView = void;
-  using Word = void;
+  using Word = uint64_t;
+  using Reference = BitsetReference<Word>;
+  using ConstReference = BitsetReference<const Word>;
+  using Iterator = BitsetIterator<Word>;
+  using ConstIterator = BitsetIterator<const Word>;
+  using View = BitSetView<Iterator>;
+  using ConstView = BitSetView<ConstIterator>;
 
   static constexpr std::size_t NPOS = -1;
 
@@ -22,8 +27,10 @@ public:
   BitSet(std::size_t size, bool value);
   BitSet(const BitSet& other);
   explicit BitSet(std::string_view str);
-  explicit BitSet(const ConstView& other);
+  BitSet(const ConstView& other);
+
   BitSet(ConstIterator first, ConstIterator last);
+
 
   BitSet& operator=(const BitSet& other) &;
   BitSet& operator=(std::string_view str) &;
@@ -38,21 +45,29 @@ public:
 
   Reference operator[](std::size_t index);
   ConstReference operator[](std::size_t index) const;
-
   Iterator begin();
   ConstIterator begin() const;
 
   Iterator end();
   ConstIterator end() const;
+  friend BitSet operator~(const BitSet& lhs);
+  friend BitSet operator&(const BitSet& lhs, const BitSet& rhs);
+  friend BitSet operator^(const BitSet& lhs, const BitSet& rhs);
+  friend BitSet operator|(const BitSet& lhs, const BitSet& rhs);
+
 
   BitSet& operator&=(const ConstView& other) &;
   BitSet& operator|=(const ConstView& other) &;
   BitSet& operator^=(const ConstView& other) &;
   BitSet& operator<<=(std::size_t count) &;
   BitSet& operator>>=(std::size_t count) &;
+  BitSet operator<<(std::size_t shift) const;
+  BitSet operator>>(std::size_t shift) const;
+
   BitSet& flip() &;
 
   BitSet& set() &;
+
   BitSet& reset() &;
 
   bool all() const;
@@ -60,15 +75,15 @@ public:
   std::size_t count() const;
 
   operator ConstView() const;
+
   operator View();
 
   View subview(std::size_t offset = 0, std::size_t count = NPOS);
   ConstView subview(std::size_t offset = 0, std::size_t count = NPOS) const;
+private:
+  size_t _size;
+  Word* _data;
 };
 
-bool operator==(const BitSet& left, const BitSet& right);
-bool operator!=(const BitSet& left, const BitSet& right);
-
-void swap(BitSet& lhs, BitSet& rhs);
-
+  void swap(BitSet& lhs, BitSet& rhs);
 } // namespace ct

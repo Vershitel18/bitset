@@ -1,4 +1,5 @@
-add_library(bitset)
+add_library(bitset
+        )
 
 # Add sources
 target_sources(bitset
