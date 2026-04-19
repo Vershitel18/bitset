@@ -294,7 +294,13 @@ public:
       if (shift == 0) {
         return cur;
       }
-      return (cur >> shift) | (next << (64 - shift));
+
+      if (shift > 0) {
+        return (cur >> shift) | (next << (64 - shift));
+      } else {
+        const int s = -shift;
+        return (cur << s) | (next >> (64 - s));
+      }
     };
 
     if (ptr1 == end_ptr1) {

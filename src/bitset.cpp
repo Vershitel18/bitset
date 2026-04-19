@@ -1,5 +1,9 @@
 #include "bitset.h"
 
+#include <unistd.h>
+
+#include <ostream>
+
 namespace ct {
 // View operations
 BitSet operator~(const ConstView& a) {
@@ -49,7 +53,9 @@ std::string to_string(const ConstView& view) {
 }
 
 std::ostream& operator<<(std::ostream& out_stream, const ConstView& view) {
-  return out_stream << to_string(view);
+  auto s = to_string(view);
+  out_stream.write(s.data(), s.size());
+  return out_stream;
 }
 
 // BitSet all
