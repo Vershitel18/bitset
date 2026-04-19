@@ -230,7 +230,9 @@ public:
   };
 
   const View& apply(Op op) const {
-    if (empty()) return *this;
+    if (empty()) {
+      return *this;
+    }
 
     auto ptr_begin = _begin.word_ptr();
     auto bit_begin = _begin.bit_offset();
@@ -244,25 +246,35 @@ public:
 
     auto full_op = [&](Word& w) {
       switch (op) {
-      case Op::Flip:  w = ~w; break;
-      case Op::Set:   w = ~Word{0}; break;
-      case Op::Reset: w = 0; break;
+      case Op::Flip:
+        w = ~w;
+        break;
+      case Op::Set:
+        w = ~Word{0};
+        break;
+      case Op::Reset:
+        w = 0;
+        break;
       }
     };
 
     auto mask_op = [&](Word& w, Word mask) {
       switch (op) {
-      case Op::Flip:  w ^= mask; break;
-      case Op::Set:   w |= mask; break;
-      case Op::Reset: w &= ~mask; break;
+      case Op::Flip:
+        w ^= mask;
+        break;
+      case Op::Set:
+        w |= mask;
+        break;
+      case Op::Reset:
+        w &= ~mask;
+        break;
       }
     };
 
     // один word
     if (ptr_begin == last_word) {
-      Word right =
-          (bit_end == 0) ? ~Word{0}
-      : ((Word{1} << bit_end) - 1);
+      Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
 
       Word mask = (~Word{0} << bit_begin) & right;
       mask_op(*ptr_begin, mask);
