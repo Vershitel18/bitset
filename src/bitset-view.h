@@ -16,7 +16,7 @@ class BitSetView {
 public:
   using Value = bool;
   using Word = typename It::word_type;
-  using Reference = It::reference;
+  using Reference = typename It::reference;
   using ConstReference = BitsetReference<const Word>;
   using Iterator = It;
   using ConstIterator = BitsetIterator<const Word>;
@@ -272,22 +272,28 @@ public:
     if (empty() || other.empty()) {
       return *this;
     }
+
     auto ptr1 = this->begin().word_ptr();
     auto idx1 = this->begin().bit_offset();
 
     auto ptr2 = other.begin().word_ptr();
     auto idx2 = other.begin().bit_offset();
 
-    auto end_ptr1 = this->end().word_ptr();
-    auto end_idx1 = this->end().bit_offset();
+    auto end_bit = this->end().bit_offset();
 
-    auto get_rhs_word = [&](auto p) -> Word {
+    // последний реально используемый word lhs
+    auto last_ptr1 = this->begin().word_ptr() + ((this->size() - 1) / 64);
+
+    // последний реально используемый word rhs
+    auto last_ptr2 = other.begin().word_ptr() + ((other.size() - 1) / 64);
+
+    auto get_rhs_word = [&](const Word* p) -> Word {
       const int shift = static_cast<int>(idx2) - static_cast<int>(idx1);
 
       Word cur = *p;
 
       Word next = 0;
-      if ((p + 1) != other.end().word_ptr()) {
+      if (p < last_ptr2) {
         next = *(p + 1);
       }
 
@@ -297,31 +303,36 @@ public:
 
       if (shift > 0) {
         return (cur >> shift) | (next << (64 - shift));
-      } else {
-        const int s = -shift;
-        return (cur << s) | (next >> (64 - s));
       }
+
+      const int s = -shift;
+      return (cur << s) | (next >> (64 - s));
     };
 
-    if (ptr1 == end_ptr1) {
-      Word mask = (~Word{0} << idx1) & ((end_idx1 == 64) ? ~Word{0} : (Word{1} << end_idx1) - 1);
+    // ===== случай: весь диапазон в одном слове =====
+    if (ptr1 == last_ptr1) {
+      Word right_mask = (end_bit == 0) ? ~Word{0} : ((Word{1} << end_bit) - 1);
+
+      Word mask = (~Word{0} << idx1) & right_mask;
 
       Word rhs = get_rhs_word(ptr2);
       *ptr1 = (*ptr1 & ~mask) | (op(*ptr1, rhs) & mask);
       return *this;
     }
 
+    // ===== первое неполное слово =====
     if (idx1 != 0) {
       Word mask = ~Word{0} << idx1;
-      Word rhs = get_rhs_word(ptr2);
 
+      Word rhs = get_rhs_word(ptr2);
       *ptr1 = (*ptr1 & ~mask) | (op(*ptr1, rhs) & mask);
 
       ++ptr1;
       ++ptr2;
     }
 
-    while (ptr1 < end_ptr1) {
+    // ===== полные средние слова =====
+    while (ptr1 < last_ptr1) {
       Word rhs = get_rhs_word(ptr2);
       *ptr1 = op(*ptr1, rhs);
 
@@ -329,14 +340,18 @@ public:
       ++ptr2;
     }
 
-    if (end_idx1 > 0) {
-      Word mask = (end_idx1 == 64) ? ~Word{0} : (Word{1} << end_idx1) - 1;
+    // ===== последнее неполное / полное слово =====
+    if (end_bit == 0) {
+      Word rhs = get_rhs_word(ptr2);
+      *ptr1 = op(*ptr1, rhs);
+    } else {
+      Word mask = (Word{1} << end_bit) - 1;
 
       Word rhs = get_rhs_word(ptr2);
       *ptr1 = (*ptr1 & ~mask) | (op(*ptr1, rhs) & mask);
     }
 
-    return *this; /// asdasdasdasd
+    return *this;
   }
 
   // всего два типа const и non-const
