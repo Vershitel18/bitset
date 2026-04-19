@@ -230,9 +230,7 @@ public:
   };
 
   const View& apply(Op op) const {
-    if (empty()) {
-      return *this;
-    }
+    if (empty()) return *this;
 
     auto ptr_begin = _begin.word_ptr();
     auto bit_begin = _begin.bit_offset();
@@ -240,62 +238,55 @@ public:
     auto ptr_end = _end.word_ptr();
     auto bit_end = _end.bit_offset();
 
+    // если конец ровно на границе слова,
+    // последнее используемое слово = предыдущее
+    Word* last_word = (bit_end == 0) ? ptr_end - 1 : ptr_end;
+
     auto full_op = [&](Word& w) {
       switch (op) {
-      case Op::Flip:
-        w = ~w;
-        break;
-      case Op::Set:
-        w = ~Word{0};
-        break;
-      case Op::Reset:
-        w = Word{0};
-        break;
+      case Op::Flip:  w = ~w; break;
+      case Op::Set:   w = ~Word{0}; break;
+      case Op::Reset: w = 0; break;
       }
     };
 
     auto mask_op = [&](Word& w, Word mask) {
       switch (op) {
-      case Op::Flip:
-        w ^= mask;
-        break;
-      case Op::Set:
-        w |= mask;
-        break;
-      case Op::Reset:
-        w &= ~mask;
-        break;
+      case Op::Flip:  w ^= mask; break;
+      case Op::Set:   w |= mask; break;
+      case Op::Reset: w &= ~mask; break;
       }
     };
 
-    // диапазон целиком внутри одного слова
-    if (ptr_begin == ptr_end) {
-      Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
-      Word mask = (~Word{0} << bit_begin) & right;
+    // один word
+    if (ptr_begin == last_word) {
+      Word right =
+          (bit_end == 0) ? ~Word{0}
+      : ((Word{1} << bit_end) - 1);
 
+      Word mask = (~Word{0} << bit_begin) & right;
       mask_op(*ptr_begin, mask);
       return *this;
     }
 
-    // первое частичное слово
+    // первый partial
     if (bit_begin != 0) {
-      Word mask = ~Word{0} << bit_begin;
-      mask_op(*ptr_begin, mask);
+      mask_op(*ptr_begin, ~Word{0} << bit_begin);
       ++ptr_begin;
     }
 
-    // полные слова посередине
-    while (ptr_begin < ptr_end) {
+    // middle full words
+    while (ptr_begin < last_word) {
       full_op(*ptr_begin);
       ++ptr_begin;
     }
 
-    // последнее слово
-    if (bit_end != 0) {
-      Word mask = (Word{1} << bit_end) - 1;
-      mask_op(*ptr_end, mask);
+    // last word
+    if (bit_end == 0) {
+      full_op(*last_word);
     } else {
-      full_op(*ptr_end);
+      Word mask = (Word{1} << bit_end) - 1;
+      mask_op(*last_word, mask);
     }
 
     return *this;
