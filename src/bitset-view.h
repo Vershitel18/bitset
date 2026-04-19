@@ -21,13 +21,13 @@ public:
   using Iterator = It;
   using ConstIterator = BitsetIterator<const Word>;
   using View = BitSetView;
-  using const_view = BitSetView<ConstIterator>;
+  using ConstView = BitSetView<ConstIterator>;
   static constexpr std::size_t NPOS = std::numeric_limits<std::size_t>::max();
 
   BitSetView() = default;
   // BitSetView(BitsetIterator<const unsigned long> bs, size_t end);
   // BitSetView(const BitSet& bs);
-  BitSetView(const BitSetView&) = default;
+  BitSetView(const BitSetView& other) = default;
   ~BitSetView() = default;
 
   // BitSetView& operator=(const BitSetView& other) {
@@ -37,8 +37,8 @@ public:
   //   return *this;
   // }
 
-  operator const_view() const {
-    return const_view(_begin, _end); // хзхз
+  operator ConstView() const {
+    return ConstView(_begin, _end); // хзхз
   }
 
   It begin() const {
@@ -69,105 +69,147 @@ public:
   }
 
   bool all() const {
-    if (empty()) {
-      return false;
-    }
-    auto ptr_begin = _begin.word_ptr();
-    auto index_begin = _begin.bit_offset();
-    auto ptr_end = _end.word_ptr();
-    auto index_end = _end.bit_offset();
-    if (ptr_begin == ptr_end) { // не уверен что здесь вот это нужно вообще
-      Word mask = (~Word{0} << index_begin) & ((Word{1} << index_end) - 1);
-      return static_cast<bool>((*ptr_begin & mask) == mask);
-    }
-    if (index_begin != 0) {
-      if ((*ptr_begin & (~Word{0} << index_begin)) != ~Word{0} << index_begin) {
-        return false;
-      }
-      ++ptr_begin;
-    }
-    if (index_end > 0) {
-      Word mask = (index_end == 64) ? ~Word{0} : (Word{1} << index_end) - 1;
-      if ((*ptr_end & mask) != mask) {
-        return false;
-      }
-      --ptr_end;
-    }
-    while (ptr_begin < ptr_end) {
-      if (*ptr_begin != ~Word{0}) {
-        return false;
-      }
-      ++ptr_begin;
-    }
+  if (empty()) {
     return true;
   }
 
-  bool any() const {
-    if (empty()) {
+  auto ptr_begin = _begin.word_ptr();
+  auto bit_begin = _begin.bit_offset();
+
+  auto ptr_end = _end.word_ptr();
+  auto bit_end = _end.bit_offset();
+
+  // весь диапазон внутри одного слова
+  if (ptr_begin == ptr_end) {
+    Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
+    Word mask = (~Word{0} << bit_begin) & right;
+    return ((*ptr_begin & mask) == mask);
+  }
+
+  // первое частичное слово
+  if (bit_begin != 0) {
+    Word mask = ~Word{0} << bit_begin;
+    if ((*ptr_begin & mask) != mask) {
       return false;
     }
-    auto ptr_begin = _begin.word_ptr();
-    auto index_begin = _begin.bit_offset();
-    auto ptr_end = _end.word_ptr();
-    auto index_end = _end.bit_offset();
-    if (ptr_begin == ptr_end) { // не уверен что здесь вот это нужно вообще
-      Word mask = (~Word{0} << index_begin) & ((index_end == 64) ? ~Word{0} : (Word{1} << index_end) - 1);
-      return static_cast<bool>((*ptr_begin & mask) != 0);
+    ++ptr_begin;
+  }
+
+  // полные слова посередине
+  while (ptr_begin < ptr_end) {
+    if (*ptr_begin != ~Word{0}) {
+      return false;
     }
-    if (index_begin != 0) {
-      Word mask = ~Word{0} << index_begin;
-      if ((*ptr_begin & mask) != 0) {
-        return true;
-      }
-      ++ptr_begin;
+    ++ptr_begin;
+  }
+
+  // последнее частичное слово
+  if (bit_end != 0) {
+    Word mask = (Word{1} << bit_end) - 1;
+    if ((*ptr_end & mask) != mask) {
+      return false;
     }
-    if (index_end > 0) {
-      Word mask = (index_end == 64) ? ~Word{0} : (Word{1} << index_end) - 1;
-      if ((*ptr_end & mask) != 0) {
-        return true;
-      }
-      --ptr_end;
-    }
-    while (ptr_begin <= ptr_end) {
-      if (*ptr_begin != 0) {
-        return true;
-      }
-      ++ptr_begin;
-    }
+  }
+
+  return true;
+}
+
+bool any() const {
+  if (empty()) {
     return false;
   }
 
-  std::size_t count() const {
-    if (empty()) {
-      return 0;
-    }
-    size_t count = 0;
-    auto ptr_begin = _begin.word_ptr();
-    auto index_begin = _begin.bit_offset();
-    auto ptr_end = _end.word_ptr();
-    auto index_end = _end.bit_offset();
-    if (ptr_begin == ptr_end) { // не уверен что здесь вот это нужно вообще
-      Word mask = (~Word{0} << index_begin) & ((index_end == 64) ? ~Word{0} : (Word{1} << index_end) - 1);
-      return __builtin_popcountll(static_cast<Word>(*ptr_begin & mask));
-    }
-    if (index_begin != 0) {
-      Word mask = ~Word{0} << index_begin;
-      count += __builtin_popcountll(static_cast<Word>(*ptr_begin & mask));
-      ++ptr_begin;
-    }
-    if (index_end > 0) {
-      Word mask = (index_end == 64) ? ~Word{0} : (Word{1} << index_end) - 1;
-      count += __builtin_popcountll(static_cast<Word>(*ptr_end & mask));
-      --ptr_end;
-    }
-    while (ptr_begin <= ptr_end) {
-      count += __builtin_popcountll(static_cast<Word>(*ptr_begin));
-      ++ptr_begin;
-    }
-    return count;
+  auto ptr_begin = _begin.word_ptr();
+  auto bit_begin = _begin.bit_offset();
+
+  auto ptr_end = _end.word_ptr();
+  auto bit_end = _end.bit_offset();
+
+  // весь диапазон внутри одного слова
+  if (ptr_begin == ptr_end) {
+    Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
+    Word mask = (~Word{0} << bit_begin) & right;
+    return ((*ptr_begin & mask) != 0);
   }
 
+  // первое частичное слово
+  if (bit_begin != 0) {
+    Word mask = ~Word{0} << bit_begin;
+    if ((*ptr_begin & mask) != 0) {
+      return true;
+    }
+    ++ptr_begin;
+  }
+
+  // полные слова посередине
+  while (ptr_begin < ptr_end) {
+    if (*ptr_begin != 0) {
+      return true;
+    }
+    ++ptr_begin;
+  }
+
+  // последнее частичное слово
+  if (bit_end != 0) {
+    Word mask = (Word{1} << bit_end) - 1;
+    if ((*ptr_end & mask) != 0) {
+      return true;
+    }
+  } else {
+    if (*ptr_end != 0) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+std::size_t count() const {
+  if (empty()) {
+    return 0;
+  }
+
+  std::size_t result = 0;
+
+  auto ptr_begin = _begin.word_ptr();
+  auto bit_begin = _begin.bit_offset();
+
+  auto ptr_end = _end.word_ptr();
+  auto bit_end = _end.bit_offset();
+
+  // весь диапазон внутри одного слова
+  if (ptr_begin == ptr_end) {
+    Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
+    Word mask = (~Word{0} << bit_begin) & right;
+    return __builtin_popcountll((*ptr_begin) & mask);
+  }
+
+  // первое частичное слово
+  if (bit_begin != 0) {
+    Word mask = ~Word{0} << bit_begin;
+    result += __builtin_popcountll((*ptr_begin) & mask);
+    ++ptr_begin;
+  }
+
+  // полные слова посередине
+  while (ptr_begin < ptr_end) {
+    result += __builtin_popcountll(*ptr_begin);
+    ++ptr_begin;
+  }
+
+  // последнее слово
+  if (bit_end != 0) {
+    Word mask = (Word{1} << bit_end) - 1;
+    result += __builtin_popcountll((*ptr_end) & mask);
+  } else {
+    result += __builtin_popcountll(*ptr_end);
+  }
+
+  return result;
+}
+
   BitSetView subview(std::size_t offset = 0, std::size_t count = NPOS) const {
+    if (empty()) { return {end(), end()}; }
     if (offset > size()) {
       offset = size();
     } else if (count == NPOS || offset + count > size()) {
@@ -190,66 +232,56 @@ public:
       return *this;
     }
 
-    auto begin_it = this->begin();
-    auto end_it = this->end();
+    auto ptr_begin = _begin.word_ptr();
+    auto bit_begin = _begin.bit_offset();
 
-    auto ptr_begin = begin_it.word_ptr();
-    auto idx_begin = begin_it.bit_offset();
-
-    auto ptr_end = end_it.word_ptr();
-    auto idx_end = end_it.bit_offset();
+    auto ptr_end = _end.word_ptr();
+    auto bit_end = _end.bit_offset();
 
     auto full_op = [&](Word& w) {
       switch (op) {
-      case Op::Flip:
-        w = ~w;
-        break;
-      case Op::Set:
-        w = ~Word{0};
-        break;
-      case Op::Reset:
-        w = Word{0};
-        break;
+      case Op::Flip:  w = ~w;        break;
+      case Op::Set:   w = ~Word{0};  break;
+      case Op::Reset: w = Word{0};   break;
       }
     };
 
     auto mask_op = [&](Word& w, Word mask) {
       switch (op) {
-      case Op::Flip:
-        w ^= mask;
-        break;
-      case Op::Set:
-        w |= mask;
-        break;
-      case Op::Reset:
-        w &= ~mask;
-        break;
+      case Op::Flip:  w ^= mask;   break;
+      case Op::Set:   w |= mask;   break;
+      case Op::Reset: w &= ~mask;  break;
       }
     };
 
+    // диапазон целиком внутри одного слова
     if (ptr_begin == ptr_end) {
-      Word mask = (~Word{0} << idx_begin) & ((idx_end == 64) ? ~Word{0} : ((Word{1} << idx_end) - 1));
+      Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
+      Word mask = (~Word{0} << bit_begin) & right;
 
       mask_op(*ptr_begin, mask);
       return *this;
     }
 
-    if (idx_begin != 0) {
-      Word mask = ~Word{0} << idx_begin;
+    // первое частичное слово
+    if (bit_begin != 0) {
+      Word mask = ~Word{0} << bit_begin;
       mask_op(*ptr_begin, mask);
       ++ptr_begin;
     }
 
-    if (idx_end > 0) {
-      Word mask = (idx_end == 64) ? ~Word{0} : ((Word{1} << idx_end) - 1);
-
-      mask_op(*ptr_end, mask);
-      --ptr_end;
-    }
-
-    while (ptr_begin <= ptr_end) {
+    // полные слова посередине
+    while (ptr_begin < ptr_end) {
       full_op(*ptr_begin);
       ++ptr_begin;
+    }
+
+    // последнее слово
+    if (bit_end != 0) {
+      Word mask = (Word{1} << bit_end) - 1;
+      mask_op(*ptr_end, mask);
+    } else {
+      full_op(*ptr_end);
     }
 
     return *this;
@@ -268,7 +300,7 @@ public:
   }
 
   template <typename Operation>
-  const View& binary_operation(const const_view& other, Operation op) const {
+  const View& binary_operation(const ConstView& other, Operation op) const {
     if (empty() || other.empty()) {
       return *this;
     }
@@ -357,19 +389,19 @@ public:
   // всего два типа const и non-const
   // const потому что конверсия неявная, а значит она возвращает rvalue
   // только константная ссылка принимает rvlaue
-  const View& operator&=(const const_view& other) const {
+  const View& operator&=(const ConstView& other) const {
     return binary_operation(other, [](Word a, Word b) {
       return a & b;
     });
   }
 
-  const View& operator|=(const const_view& other) const {
+  const View& operator|=(const ConstView& other) const {
     return binary_operation(other, [](Word a, Word b) {
       return a | b;
     });
   }
 
-  const View& operator^=(const const_view& other) const {
+  const View& operator^=(const ConstView& other) const {
     return binary_operation(other, [](Word a, Word b) {
       return a ^ b;
     });
