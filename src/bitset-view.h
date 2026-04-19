@@ -69,147 +69,149 @@ public:
   }
 
   bool all() const {
-  if (empty()) {
+    if (empty()) {
+      return true;
+    }
+
+    auto ptr_begin = _begin.word_ptr();
+    auto bit_begin = _begin.bit_offset();
+
+    auto ptr_end = _end.word_ptr();
+    auto bit_end = _end.bit_offset();
+
+    // весь диапазон внутри одного слова
+    if (ptr_begin == ptr_end) {
+      Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
+      Word mask = (~Word{0} << bit_begin) & right;
+      return ((*ptr_begin & mask) == mask);
+    }
+
+    // первое частичное слово
+    if (bit_begin != 0) {
+      Word mask = ~Word{0} << bit_begin;
+      if ((*ptr_begin & mask) != mask) {
+        return false;
+      }
+      ++ptr_begin;
+    }
+
+    // полные слова посередине
+    while (ptr_begin < ptr_end) {
+      if (*ptr_begin != ~Word{0}) {
+        return false;
+      }
+      ++ptr_begin;
+    }
+
+    // последнее частичное слово
+    if (bit_end != 0) {
+      Word mask = (Word{1} << bit_end) - 1;
+      if ((*ptr_end & mask) != mask) {
+        return false;
+      }
+    }
+
     return true;
   }
 
-  auto ptr_begin = _begin.word_ptr();
-  auto bit_begin = _begin.bit_offset();
-
-  auto ptr_end = _end.word_ptr();
-  auto bit_end = _end.bit_offset();
-
-  // весь диапазон внутри одного слова
-  if (ptr_begin == ptr_end) {
-    Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
-    Word mask = (~Word{0} << bit_begin) & right;
-    return ((*ptr_begin & mask) == mask);
-  }
-
-  // первое частичное слово
-  if (bit_begin != 0) {
-    Word mask = ~Word{0} << bit_begin;
-    if ((*ptr_begin & mask) != mask) {
+  bool any() const {
+    if (empty()) {
       return false;
     }
-    ++ptr_begin;
-  }
 
-  // полные слова посередине
-  while (ptr_begin < ptr_end) {
-    if (*ptr_begin != ~Word{0}) {
-      return false;
+    auto ptr_begin = _begin.word_ptr();
+    auto bit_begin = _begin.bit_offset();
+
+    auto ptr_end = _end.word_ptr();
+    auto bit_end = _end.bit_offset();
+
+    // весь диапазон внутри одного слова
+    if (ptr_begin == ptr_end) {
+      Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
+      Word mask = (~Word{0} << bit_begin) & right;
+      return ((*ptr_begin & mask) != 0);
     }
-    ++ptr_begin;
-  }
 
-  // последнее частичное слово
-  if (bit_end != 0) {
-    Word mask = (Word{1} << bit_end) - 1;
-    if ((*ptr_end & mask) != mask) {
-      return false;
+    // первое частичное слово
+    if (bit_begin != 0) {
+      Word mask = ~Word{0} << bit_begin;
+      if ((*ptr_begin & mask) != 0) {
+        return true;
+      }
+      ++ptr_begin;
     }
-  }
 
-  return true;
-}
+    // полные слова посередине
+    while (ptr_begin < ptr_end) {
+      if (*ptr_begin != 0) {
+        return true;
+      }
+      ++ptr_begin;
+    }
 
-bool any() const {
-  if (empty()) {
+    // последнее частичное слово
+    if (bit_end != 0) {
+      Word mask = (Word{1} << bit_end) - 1;
+      if ((*ptr_end & mask) != 0) {
+        return true;
+      }
+    } else {
+      if (*ptr_end != 0) {
+        return true;
+      }
+    }
+
     return false;
   }
 
-  auto ptr_begin = _begin.word_ptr();
-  auto bit_begin = _begin.bit_offset();
-
-  auto ptr_end = _end.word_ptr();
-  auto bit_end = _end.bit_offset();
-
-  // весь диапазон внутри одного слова
-  if (ptr_begin == ptr_end) {
-    Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
-    Word mask = (~Word{0} << bit_begin) & right;
-    return ((*ptr_begin & mask) != 0);
-  }
-
-  // первое частичное слово
-  if (bit_begin != 0) {
-    Word mask = ~Word{0} << bit_begin;
-    if ((*ptr_begin & mask) != 0) {
-      return true;
+  std::size_t count() const {
+    if (empty()) {
+      return 0;
     }
-    ++ptr_begin;
-  }
 
-  // полные слова посередине
-  while (ptr_begin < ptr_end) {
-    if (*ptr_begin != 0) {
-      return true;
+    std::size_t result = 0;
+
+    auto ptr_begin = _begin.word_ptr();
+    auto bit_begin = _begin.bit_offset();
+
+    auto ptr_end = _end.word_ptr();
+    auto bit_end = _end.bit_offset();
+
+    // весь диапазон внутри одного слова
+    if (ptr_begin == ptr_end) {
+      Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
+      Word mask = (~Word{0} << bit_begin) & right;
+      return __builtin_popcountll((*ptr_begin) & mask);
     }
-    ++ptr_begin;
-  }
 
-  // последнее частичное слово
-  if (bit_end != 0) {
-    Word mask = (Word{1} << bit_end) - 1;
-    if ((*ptr_end & mask) != 0) {
-      return true;
+    // первое частичное слово
+    if (bit_begin != 0) {
+      Word mask = ~Word{0} << bit_begin;
+      result += __builtin_popcountll((*ptr_begin) & mask);
+      ++ptr_begin;
     }
-  } else {
-    if (*ptr_end != 0) {
-      return true;
+
+    // полные слова посередине
+    while (ptr_begin < ptr_end) {
+      result += __builtin_popcountll(*ptr_begin);
+      ++ptr_begin;
     }
+
+    // последнее слово
+    if (bit_end != 0) {
+      Word mask = (Word{1} << bit_end) - 1;
+      result += __builtin_popcountll((*ptr_end) & mask);
+    } else {
+      result += __builtin_popcountll(*ptr_end);
+    }
+
+    return result;
   }
-
-  return false;
-}
-
-std::size_t count() const {
-  if (empty()) {
-    return 0;
-  }
-
-  std::size_t result = 0;
-
-  auto ptr_begin = _begin.word_ptr();
-  auto bit_begin = _begin.bit_offset();
-
-  auto ptr_end = _end.word_ptr();
-  auto bit_end = _end.bit_offset();
-
-  // весь диапазон внутри одного слова
-  if (ptr_begin == ptr_end) {
-    Word right = (bit_end == 0) ? ~Word{0} : ((Word{1} << bit_end) - 1);
-    Word mask = (~Word{0} << bit_begin) & right;
-    return __builtin_popcountll((*ptr_begin) & mask);
-  }
-
-  // первое частичное слово
-  if (bit_begin != 0) {
-    Word mask = ~Word{0} << bit_begin;
-    result += __builtin_popcountll((*ptr_begin) & mask);
-    ++ptr_begin;
-  }
-
-  // полные слова посередине
-  while (ptr_begin < ptr_end) {
-    result += __builtin_popcountll(*ptr_begin);
-    ++ptr_begin;
-  }
-
-  // последнее слово
-  if (bit_end != 0) {
-    Word mask = (Word{1} << bit_end) - 1;
-    result += __builtin_popcountll((*ptr_end) & mask);
-  } else {
-    result += __builtin_popcountll(*ptr_end);
-  }
-
-  return result;
-}
 
   BitSetView subview(std::size_t offset = 0, std::size_t count = NPOS) const {
-    if (empty()) { return {end(), end()}; }
+    if (empty()) {
+      return {end(), end()};
+    }
     if (offset > size()) {
       offset = size();
     } else if (count == NPOS || offset + count > size()) {
@@ -240,17 +242,29 @@ std::size_t count() const {
 
     auto full_op = [&](Word& w) {
       switch (op) {
-      case Op::Flip:  w = ~w;        break;
-      case Op::Set:   w = ~Word{0};  break;
-      case Op::Reset: w = Word{0};   break;
+      case Op::Flip:
+        w = ~w;
+        break;
+      case Op::Set:
+        w = ~Word{0};
+        break;
+      case Op::Reset:
+        w = Word{0};
+        break;
       }
     };
 
     auto mask_op = [&](Word& w, Word mask) {
       switch (op) {
-      case Op::Flip:  w ^= mask;   break;
-      case Op::Set:   w |= mask;   break;
-      case Op::Reset: w &= ~mask;  break;
+      case Op::Flip:
+        w ^= mask;
+        break;
+      case Op::Set:
+        w |= mask;
+        break;
+      case Op::Reset:
+        w &= ~mask;
+        break;
       }
     };
 
