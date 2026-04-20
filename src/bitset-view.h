@@ -96,21 +96,23 @@ public:
   }
 
   bool all() const {
+    bool result = true;
     unary_operations([&](Word word, Word mask) {
       if ((word & mask) != mask) {
-        return false;
+        result = false;
       }
     });
-    return true;
+    return result;
   }
 
   bool any() const {
+    bool result = false;
     unary_operations([&](Word word, Word mask) {
       if ((word & mask) != 0) {
-        return true;
+        result = true;
       }
     });
-    return false;
+    return result;
   }
 
   std::size_t count() const {
