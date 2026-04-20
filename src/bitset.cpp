@@ -8,36 +8,36 @@
 namespace ct {
 // View operations
 BitSet operator~(const ConstView& a) {
-  BitSet result = a;
+  BitSet result(a);
   return result.flip();
 }
 
 BitSet operator&(const ConstView& a, const ConstView& b) {
-  BitSet result = a;
+  BitSet result(a);
   result &= b;
   return result;
 }
 
 BitSet operator|(const ConstView& a, const ConstView& b) {
-  BitSet result = a;
+  BitSet result(a);
   result |= b;
   return result;
 }
 
 BitSet operator^(const ConstView& a, const ConstView& b) {
-  BitSet result = a;
+  BitSet result(a);
   result ^= b;
   return result;
 }
 
 BitSet operator<<(const ConstView& a, size_t shift) {
-  BitSet tmp = a;
+  BitSet tmp(a);
   tmp <<= shift;
   return tmp;
 }
 
 BitSet operator>>(const ConstView& a, size_t shift) {
-  BitSet tmp = a;
+  BitSet tmp(a);
   tmp >>= shift;
   return tmp;
 }
@@ -127,7 +127,7 @@ BitSet::~BitSet() {
   delete[] _data;
 }
 
-void BitSet::swap(BitSet& other) {
+void BitSet::swap(BitSet& other) noexcept {
   using std::swap;
   swap(_data, other._data);
   swap(_size, other._size);
@@ -188,7 +188,6 @@ BitSet operator|(const BitSet& lhs, const BitSet& rhs) {
 }
 
 BitSet& BitSet::operator&=(const ConstView& other) & {
-  assert(size() == other.size());
   if (empty()) {
     return *this;
   }
@@ -197,7 +196,6 @@ BitSet& BitSet::operator&=(const ConstView& other) & {
 }
 
 BitSet& BitSet::operator|=(const ConstView& other) & {
-  assert(size() == other.size());
   if (empty()) {
     return *this;
   }
@@ -206,7 +204,6 @@ BitSet& BitSet::operator|=(const ConstView& other) & {
 }
 
 BitSet& BitSet::operator^=(const ConstView& other) & {
-  assert(size() == other.size());
   if (empty()) {
     return *this;
   }
@@ -359,7 +356,7 @@ BitSet::ConstView BitSet::subview(std::size_t offset, std::size_t count) const {
   return {first, last};
 }
 
-void swap(BitSet& lhs, BitSet& rhs) {
+void swap(BitSet& lhs, BitSet& rhs) noexcept {
   lhs.swap(rhs);
 }
 } // namespace ct

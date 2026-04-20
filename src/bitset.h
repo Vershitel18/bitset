@@ -27,7 +27,7 @@ public:
   BitSet(std::size_t size, bool value);
   BitSet(const BitSet& other);
   explicit BitSet(std::string_view str);
-  BitSet(const ConstView& other);
+  explicit BitSet(const ConstView& other);
 
   BitSet(ConstIterator first, ConstIterator last);
 
@@ -37,7 +37,7 @@ public:
 
   ~BitSet();
 
-  void swap(BitSet& other);
+  void swap(BitSet& other) noexcept;
 
   std::size_t size() const;
   bool empty() const;
@@ -84,5 +84,5 @@ private:
   Word* _data;
 };
 
-void swap(BitSet& lhs, BitSet& rhs);
+void swap(BitSet& lhs, BitSet& rhs) noexcept;
 } // namespace ct

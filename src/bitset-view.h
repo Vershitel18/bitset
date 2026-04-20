@@ -23,7 +23,7 @@ public:
   using ConstIterator = BitsetIterator<const Word>;
   using View = BitSetView;
   using ConstView = BitSetView<ConstIterator>;
-  static constexpr std::size_t NPOS = std::numeric_limits<std::size_t>::max();
+  static constexpr std::size_t NPOS = -1;
 
   BitSetView() = default;
   BitSetView(const BitSetView& other) = default;
