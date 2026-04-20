@@ -1,19 +1,19 @@
 #pragma once
 #include "bitset-reference.h"
+#include "common.h"
 
 #include <cstddef>
 #include <iterator>
-#include <type_traits>
 
 namespace ct {
-template <typename Word>
+template <typename TWord>
 struct BitsetIterator {
   using iterator_category = std::random_access_iterator_tag;
   using difference_type = std::ptrdiff_t;
   using value_type = bool;
-  using reference = BitsetReference<Word>;
+  using reference = BitsetReference<TWord>;
   using pointer = void;
-  using word_type = Word;
+  using word_type = TWord;
   using ConstIterator = BitsetIterator<const word_type>;
 
   BitsetIterator() = default;
@@ -26,15 +26,19 @@ struct BitsetIterator {
   ~BitsetIterator() = default;
 
   reference operator*() const {
-    return reference(_ptr + (_index / 64), _index % 64);
+    return reference(_ptr + ct::word_index(_index), ct::bit_offset(_index));
   }
 
-  Word* word_ptr() const noexcept {
-    return _ptr + (_index / 64);
+  TWord* word_ptr() const noexcept {
+    return _ptr + ct::word_index(_index);
   }
 
   std::size_t bit_offset() const noexcept {
-    return _index % 64;
+    return ct::bit_offset(_index);
+  }
+
+  std::size_t global_index() const noexcept {
+    return _index;
   }
 
   reference operator[](const difference_type idx) const {
@@ -102,30 +106,40 @@ struct BitsetIterator {
   }
 
   friend bool operator<(const BitsetIterator& lhs, const BitsetIterator& rhs) {
-    return lhs._index < rhs._index;
+    if (lhs._ptr == rhs._ptr) {
+      return lhs._index < rhs._index;
+    }
+    return lhs._ptr < rhs._ptr;
   }
 
   friend bool operator<=(const BitsetIterator& lhs, const BitsetIterator& rhs) {
-    return lhs._index <= rhs._index;
+    if (lhs._ptr == rhs._ptr) {
+      return lhs._index <= rhs._index;
+    }
+    return lhs._ptr <= rhs._ptr;
   }
 
   friend bool operator>(const BitsetIterator& lhs, const BitsetIterator& rhs) {
-    return rhs < lhs;
+    if (lhs._ptr == rhs._ptr) {
+      return lhs._index > rhs._index;
+    }
+    return lhs._ptr > rhs._ptr;
   }
 
   friend bool operator>=(const BitsetIterator& lhs, const BitsetIterator& rhs) {
-    return rhs <= lhs;
+    if (lhs._ptr == rhs._ptr) {
+      return lhs._index >= rhs._index;
+    }
+    return lhs._ptr >= rhs._ptr;
   }
 
 private:
-  Word* _ptr;
+  TWord* _ptr;
   difference_type _index;
   template <typename>
   friend struct BitsetIterator;
-  friend class BasicView;
-  friend class MutableBasicView;
 
-  BitsetIterator(Word* ptr, size_t index)
+  BitsetIterator(TWord* ptr, size_t index)
       : _ptr(ptr)
       , _index(static_cast<difference_type>(index)) {}
   friend class BitSet;

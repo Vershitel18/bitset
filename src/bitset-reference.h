@@ -1,21 +1,22 @@
 #pragma once
+#include "common.h"
+
 #include <strings.h>
 
 #include <cstddef>
-#include <cstdint>
 
 namespace ct {
 
 // TODO BitSet reference
-template <typename Word>
+template <typename TWord>
 class BitsetReference {
-  using ConstReference = BitsetReference<const Word>;
+  using ConstReference = BitsetReference<const TWord>;
   using Reference = BitsetReference;
   std::size_t _index;
-  Word* _data;
+  TWord* _data;
 
 public:
-  BitsetReference(Word* data, size_t index)
+  BitsetReference(TWord* data, size_t index)
       : _index(index)
       , _data(data) {}
 
@@ -28,15 +29,15 @@ public:
 
   BitsetReference& operator=(const bool b) {
     if (b) {
-      *_data |= (Word{1} << _index);
+      *_data |= (ct::Word{1} << _index);
     } else {
-      *_data &= ~(Word{1} << _index);
+      *_data &= ~(ct::Word{1} << _index);
     }
     return *this;
   }
 
   operator bool() const {
-    return (*_data >> _index) & Word{1};
+    return (*_data >> _index) & ct::Word{1};
   }
 
   // bool operator==(bool b) const {
@@ -46,7 +47,7 @@ public:
   //   return !((*_data >> _index) & b);
   // }
   BitsetReference& flip() {
-    *_data ^= (Word{1} << _index);
+    *_data ^= (ct::Word{1} << _index);
     return *this;
   }
 };

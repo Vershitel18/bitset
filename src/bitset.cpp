@@ -1,8 +1,9 @@
 #include "bitset.h"
 
-#include <unistd.h>
-
+#include <cassert>
+#include <iostream>
 #include <ostream>
+#include <random>
 
 namespace ct {
 // View operations
@@ -65,7 +66,7 @@ BitSet::BitSet()
 
 BitSet::BitSet(std::size_t size, bool value)
     : _size(size)
-    , _data(new Word[(size + 63) / 64]()) {
+    , _data(new Word[ct::word_count(size)]()) {
   for (std::size_t i = 0; i < size; ++i) {
     (*this)[i] = value;
   }
@@ -73,7 +74,7 @@ BitSet::BitSet(std::size_t size, bool value)
 
 BitSet::BitSet(const BitSet& other)
     : _size(other._size)
-    , _data(new Word[(other._size + 63) / 64]()) {
+    , _data(new Word[ct::word_count(other._size)]()) {
   for (std::size_t i = 0; i < other._size; ++i) {
     (*this)[i] = other[i];
   }
@@ -81,7 +82,7 @@ BitSet::BitSet(const BitSet& other)
 
 BitSet::BitSet(std::string_view str)
     : _size(str.size())
-    , _data(new Word[(str.size() + 63) / 64]()) {
+    , _data(new Word[ct::word_count(str.size())]()) {
   for (std::size_t i = 0; i < str.size(); ++i) {
     (*this)[i] = (str[i] == '1');
   }
@@ -89,7 +90,7 @@ BitSet::BitSet(std::string_view str)
 
 BitSet::BitSet(const ConstView& other)
     : _size(other.size())
-    , _data(new Word[(other.size() + 63) / 64]()) {
+    , _data(new Word[ct::word_count(other.size())]()) {
   for (std::size_t i = 0; i < other.size(); ++i) {
     (*this)[i] = other[i]; // возвращает разыменованный итератор и присваивает его прокси-ссылке
   }
@@ -97,7 +98,7 @@ BitSet::BitSet(const ConstView& other)
 
 BitSet::BitSet(ConstIterator first, ConstIterator last)
     : _size(last._index - first._index)
-    , _data(new Word[(last._index - first._index + 63) / 64]()) {
+    , _data(new Word[ct::word_count(last._index - first._index)]()) {
   for (std::size_t i = 0; i < _size; ++i) {
     (*this)[i] = first[i];
   }
@@ -138,11 +139,11 @@ bool BitSet::empty() const {
 }
 
 BitSet::Reference BitSet::operator[](std::size_t index) {
-  return Reference{_data + (index / 64), index % 64};
+  return Reference{_data + ct::word_index(index), ct::bit_offset(index)};
 }
 
 BitSet::ConstReference BitSet::operator[](std::size_t index) const {
-  return ConstReference{_data + (index / 64), index % 64};
+  return ConstReference{_data + ct::word_index(index), ct::bit_offset(index)};
 }
 
 BitSet::Iterator BitSet::begin() {
@@ -209,7 +210,7 @@ BitSet& BitSet::operator^=(const ConstView& other) & {
 
 BitSet& BitSet::operator<<=(std::size_t count) & {
   BitSet tmp(size() + count, false);
-  std::copy_n(_data, (size() + 63) / 64, tmp._data);
+  std::copy_n(_data, ct::word_count(size()), tmp._data);
   swap(tmp);
   return *this;
 }

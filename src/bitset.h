@@ -3,9 +3,9 @@
 #include "bitset-iterator.h"
 #include "bitset-reference.h"
 #include "bitset-view.h"
+#include "common.h"
 
 #include <cstddef>
-#include <cstdint>
 #include <string_view>
 
 namespace ct {
@@ -13,7 +13,7 @@ namespace ct {
 class BitSet {
 public:
   using Value = bool;
-  using Word = uint64_t;
+  using Word = ct::Word;
   using Reference = BitsetReference<Word>;
   using ConstReference = BitsetReference<const Word>;
   using Iterator = BitsetIterator<Word>;
