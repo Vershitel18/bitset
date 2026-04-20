@@ -97,8 +97,11 @@ BitSet::BitSet(const ConstView& other)
 }
 
 BitSet::BitSet(ConstIterator first, ConstIterator last)
-    : _size(last._index - first._index)
-    , _data(new Word[ct::word_count(last._index - first._index)]()) {
+    : _size(0)
+    , _data(nullptr) {
+  assert(first <= last);
+  _size = static_cast<std::size_t>(last - first);
+  _data = new Word[ct::word_count(_size)]();
   for (std::size_t i = 0; i < _size; ++i) {
     (*this)[i] = first[i];
   }
@@ -185,6 +188,7 @@ BitSet operator|(const BitSet& lhs, const BitSet& rhs) {
 }
 
 BitSet& BitSet::operator&=(const ConstView& other) & {
+  assert(size() == other.size());
   if (empty()) {
     return *this;
   }
@@ -193,6 +197,7 @@ BitSet& BitSet::operator&=(const ConstView& other) & {
 }
 
 BitSet& BitSet::operator|=(const ConstView& other) & {
+  assert(size() == other.size());
   if (empty()) {
     return *this;
   }
@@ -201,6 +206,7 @@ BitSet& BitSet::operator|=(const ConstView& other) & {
 }
 
 BitSet& BitSet::operator^=(const ConstView& other) & {
+  assert(size() == other.size());
   if (empty()) {
     return *this;
   }

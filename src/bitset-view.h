@@ -73,7 +73,7 @@ public:
     const auto bit_end = _end.bit_offset();
 
     if (ptr_begin == ptr_end) {
-      const Word right = ct::low_mask(bit_end);
+      const Word right = (bit_end == 0) ? ~Word{0} : ct::low_mask(bit_end);
       op(*ptr_begin, (~Word{0} << bit_begin) & right);
       return;
     }
@@ -195,6 +195,8 @@ public:
 
   template <typename Operation>
   const View& binary_operation(const ConstView& other, Operation op) const {
+    assert(size() == other.size());
+
     if (empty() || other.empty()) {
       return *this;
     }
@@ -224,7 +226,7 @@ public:
       remaining -= bits;
       src_bit += bits;
       p2 += src_bit / 64;
-      src_bit %= 64; // потому что потом используется в
+      src_bit %= 64; // потому что потом используется в rhs_word
       ++p1;
     }
 
