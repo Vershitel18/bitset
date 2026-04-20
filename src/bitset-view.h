@@ -96,23 +96,21 @@ public:
   }
 
   bool all() const {
-    bool result = true;
     unary_operations([&](Word word, Word mask) {
       if ((word & mask) != mask) {
-        result = false;
+        return false;
       }
     });
-    return result;
+    return true;
   }
 
   bool any() const {
-    bool result = false;
     unary_operations([&](Word word, Word mask) {
       if ((word & mask) != 0) {
-        result = true;
+        return true;
       }
     });
-    return result;
+    return false;
   }
 
   std::size_t count() const {
@@ -131,6 +129,9 @@ public:
       offset = size();
     } else if (count == NPOS || offset + count > size()) {
       count = size() - offset;
+    }
+    if (count == 0) {
+      return {end(), end()};
     }
     return BitSetView(_begin + offset, _begin + offset + count);
   }
@@ -179,7 +180,7 @@ public:
     return end_bit_offset == 0 ? end_word_ptr - 1 : end_word_ptr;
   }
 
-  static ct::Word gather_bits(const Word* current, const Word* last, std::size_t shift) noexcept {
+  static ct::Word word_build(const Word* current, const Word* last, std::size_t shift) noexcept {
     ct::Word cur = *current;
     if (shift == 0) {
       return cur;
@@ -195,9 +196,7 @@ public:
 
   template <typename Operation>
   const View& binary_operation(const ConstView& other, Operation op) const {
-    assert(size() == other.size());
-
-    if (empty() || other.empty()) {
+    if (empty()) {
       return *this;
     }
 
@@ -215,7 +214,7 @@ public:
     };
 
     auto rhs_word = [&]() {
-      return gather_bits(p2, last2, src_bit);
+      return word_build(p2, last2, src_bit);
     };
 
     std::size_t remaining = bit_count;
@@ -263,7 +262,7 @@ public:
     const Word* last2 = last_word_ptr(end2.word_ptr(), end2.bit_offset());
 
     auto rhs_word = [&]() {
-      return gather_bits(p2, last2, rhs_bit);
+      return word_build(p2, last2, rhs_bit);
     };
 
     if (lhs_bit != 0) {
