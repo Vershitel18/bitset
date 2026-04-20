@@ -331,10 +331,6 @@ BitSet::View BitSet::subview(std::size_t offset, std::size_t count) {
     count = avail;
   }
 
-  if (count == 0) {
-    return {end(), end()};
-  }
-
   auto first = begin() + static_cast<std::ptrdiff_t>(offset);
   auto last = first + static_cast<std::ptrdiff_t>(count);
 
@@ -355,10 +351,6 @@ BitSet::ConstView BitSet::subview(std::size_t offset, std::size_t count) const {
 
   if (count == NPOS || count > avail) {
     count = avail;
-  }
-
-  if (count == 0) {
-    return {end(), end()};
   }
 
   auto first = begin() + static_cast<std::ptrdiff_t>(offset);

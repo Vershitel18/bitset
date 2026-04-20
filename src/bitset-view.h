@@ -132,9 +132,6 @@ public:
     } else if (count == NPOS || offset + count > size()) {
       count = size() - offset;
     }
-    if (count == 0) {
-      return {end(), end()};
-    }
     return BitSetView(_begin + offset, _begin + offset + count);
   }
 
