@@ -128,8 +128,9 @@ public:
       return {end(), end()};
     }
     if (offset > size()) {
-      offset = size();
-    } else if (count == NPOS || offset + count > size()) {
+      return {end(), end()};
+    }
+    if (count == NPOS || offset + count > size()) {
       count = size() - offset;
     }
     return BitSetView(_begin + offset, _begin + offset + count);
@@ -228,11 +229,21 @@ public:
       ++p1;
     }
 
+    // while (remaining >= 64) {
+    //   *p1 = op(*p1, rhs_word());
+    //   remaining -= 64;
+    //   ++p1;
+    //   ++p2;
+    // }
     while (remaining >= 64) {
       *p1 = op(*p1, rhs_word());
+
       remaining -= 64;
       ++p1;
-      ++p2;
+
+      src_bit += 64;
+      p2 += src_bit / 64;
+      src_bit %= 64;
     }
 
     if (remaining != 0) {
@@ -277,13 +288,25 @@ public:
       ++p1;
     }
 
+    // while (remaining >= 64) {
+    //   if (!op(*p1, rhs_word())) {
+    //     return false;
+    //   }
+    //   remaining -= 64;
+    //   ++p1;
+    //   ++p2;
+    // }
     while (remaining >= 64) {
       if (!op(*p1, rhs_word())) {
         return false;
       }
+
       remaining -= 64;
       ++p1;
-      ++p2;
+
+      rhs_bit += 64;
+      p2 += rhs_bit / 64;
+      rhs_bit %= 64;
     }
 
     if (remaining != 0) {
