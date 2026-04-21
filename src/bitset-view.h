@@ -219,25 +219,20 @@ public:
 
     std::size_t remaining = bit_count;
 
+    // Обработка головы: если первое слово частичное
     if (dst_bit != 0) {
       const std::size_t bits = std::min<std::size_t>(remaining, 64 - dst_bit);
       apply_masked(*p1, ct::low_mask(bits) << dst_bit, rhs_word() << dst_bit);
       remaining -= bits;
       src_bit += bits;
       p2 += src_bit / 64;
-      src_bit %= 64; // потому что потом используется в rhs_word
+      src_bit %= 64;
       ++p1;
     }
 
-    // while (remaining >= 64) {
-    //   *p1 = op(*p1, rhs_word());
-    //   remaining -= 64;
-    //   ++p1;
-    //   ++p2;
-    // }
+    // Обработка полных слов
     while (remaining >= 64) {
       *p1 = op(*p1, rhs_word());
-
       remaining -= 64;
       ++p1;
 
@@ -246,6 +241,7 @@ public:
       src_bit %= 64;
     }
 
+    // Обработка хвоста: если последнее слово частичное
     if (remaining != 0) {
       apply_masked(*p1, ct::low_mask(remaining), rhs_word());
     }
