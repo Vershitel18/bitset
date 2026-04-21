@@ -226,18 +226,12 @@ BitSet& BitSet::operator>>=(std::size_t count) & {
 }
 
 BitSet BitSet::operator<<(std::size_t shift) const {
-  if (empty()) {
-    return {shift, false};
-  }
   BitSet tmp = *this;
   tmp <<= shift;
   return tmp;
 }
 
 BitSet BitSet::operator>>(std::size_t shift) const {
-  if (empty()) {
-    return {shift, true};
-  }
   BitSet tmp = *this;
   tmp >>= shift;
   return tmp;
