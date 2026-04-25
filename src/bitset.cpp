@@ -1,9 +1,7 @@
 #include "bitset.h"
 
-#include <cassert>
-#include <iostream>
+#include <algorithm>
 #include <ostream>
-#include <random>
 
 namespace ct {
 // View operations
@@ -67,16 +65,22 @@ BitSet::BitSet()
 BitSet::BitSet(std::size_t size, bool value)
     : _size(size)
     , _data(new Word[ct::word_count(size)]()) {
-  for (std::size_t i = 0; i < size; ++i) {
-    (*this)[i] = value;
+  if (value) {
+    std::size_t size_word = word_index(size);
+    std::size_t tail_size = bit_offset(size);
+    std::fill(_data, _data + size_word, ~Word{0});
+    if (tail_size != 0) {
+      _data[size_word] = low_mask(tail_size);
+    }
   }
 }
 
 BitSet::BitSet(const BitSet& other)
     : _size(other._size)
     , _data(new Word[ct::word_count(other._size)]()) {
-  for (std::size_t i = 0; i < other._size; ++i) {
-    (*this)[i] = other[i];
+  std::size_t size_word = word_count(other._size);
+  for (std::size_t i = 0; i < size_word; ++i) {
+    *(_data + i) = *(other._data + i);
   }
 }
 
@@ -89,21 +93,31 @@ BitSet::BitSet(std::string_view str)
 }
 
 BitSet::BitSet(const ConstView& other)
-    : _size(other.size())
-    , _data(new Word[ct::word_count(other.size())]()) {
-  for (std::size_t i = 0; i < other.size(); ++i) {
-    (*this)[i] = other[i]; // возвращает разыменованный итератор и присваивает его прокси-ссылке
-  }
-}
+    : BitSet(other.begin(), other.end()) {}
 
 BitSet::BitSet(ConstIterator first, ConstIterator last)
-    : _size(0)
-    , _data(nullptr) {
-  assert(first <= last);
-  _size = static_cast<std::size_t>(last - first);
-  _data = new Word[ct::word_count(_size)]();
-  for (std::size_t i = 0; i < _size; ++i) {
-    (*this)[i] = first[i];
+    : _size(static_cast<size_t>(last - first))
+    , _data(new Word[ct::word_count(_size)]()) {
+  std::size_t word_length = word_count(size());
+  for (std::size_t i = 0; i < word_length; ++i) {
+    ConstIterator it = first + static_cast<std::ptrdiff_t>(i * WORD_BITS);
+    const Word* word = it.word_ptr();
+    const std::size_t bit_index = it.bit_offset();
+
+    Word word_right = 0;
+    if (bit_index == 0) {
+      word_right = *word;
+    } else {
+      word_right = (*word >> bit_index);
+
+      std::size_t bit_length_left = size() - i * WORD_BITS;
+
+      if (bit_length_left > WORD_BITS - bit_index) {
+        word_right |= (*(word + 1) << (WORD_BITS - bit_index));
+      }
+    }
+    std::size_t bit_in_word = std::min(WORD_BITS, size() - i * WORD_BITS);
+    _data[i] = word_right & low_mask(bit_in_word);
   }
 }
 
@@ -188,25 +202,16 @@ BitSet operator|(const BitSet& lhs, const BitSet& rhs) {
 }
 
 BitSet& BitSet::operator&=(const ConstView& other) & {
-  if (empty()) {
-    return *this;
-  }
   subview() &= other;
   return *this;
 }
 
 BitSet& BitSet::operator|=(const ConstView& other) & {
-  if (empty()) {
-    return *this;
-  }
   subview() |= other;
   return *this;
 }
 
 BitSet& BitSet::operator^=(const ConstView& other) & {
-  if (empty()) {
-    return *this;
-  }
   subview() ^= other;
   return *this;
 }
@@ -219,8 +224,8 @@ BitSet& BitSet::operator<<=(std::size_t count) & {
 }
 
 BitSet& BitSet::operator>>=(std::size_t count) & {
-  std::size_t erase = std::min(count, size());
-  BitSet tmp(begin(), end() - erase);
+  std::size_t bit_del = std::min(count, size());
+  BitSet tmp(begin(), end() - bit_del);
   swap(tmp);
   return *this;
 }
@@ -238,64 +243,30 @@ BitSet BitSet::operator>>(std::size_t shift) const {
 }
 
 BitSet& BitSet::flip() & { // можно вызывать только у lvalue
-  if (empty()) {
-    return *this;
-  }
   subview().flip();
   return *this;
 }
 
 BitSet& BitSet::set() & {
-  if (empty()) {
-    return *this;
-  }
   subview().set();
   return *this;
 }
 
 BitSet& BitSet::reset() & {
-  if (empty()) {
-    return *this;
-  }
   subview().reset();
   return *this;
 }
 
 bool BitSet::all() const {
-  if (empty()) {
-    return true;
-  }
-  for (std::size_t i = 0; i < size(); ++i) {
-    if (!(*this)[i]) {
-      return false;
-    }
-  }
-  return true;
+  return subview().all();
 }
 
 bool BitSet::any() const {
-  if (empty()) {
-    return false;
-  }
-  for (std::size_t i = 0; i < size(); ++i) {
-    if ((*this)[i]) {
-      return true;
-    }
-  }
-  return false;
+  return subview().any();
 }
 
 std::size_t BitSet::count() const {
-  if (empty()) {
-    return 0;
-  }
-  std::size_t count = 0;
-  for (std::size_t i = 0; i < size(); ++i) {
-    if ((*this)[i]) {
-      ++count; // пока тупая реализация
-    }
-  }
-  return count;
+  return subview().count();
 }
 
 BitSet::operator ConstView() const {
@@ -307,47 +278,11 @@ BitSet::operator View() {
 }
 
 BitSet::View BitSet::subview(std::size_t offset, std::size_t count) {
-  if (empty()) {
-    return {end(), end()};
-  }
-  std::size_t n = size();
-
-  if (offset > n) {
-    offset = n;
-  }
-
-  std::size_t avail = n - offset;
-
-  if (count == NPOS || count > avail) {
-    count = avail;
-  }
-
-  auto first = begin() + static_cast<std::ptrdiff_t>(offset);
-  auto last = first + static_cast<std::ptrdiff_t>(count);
-
-  return {first, last};
+  return make_subview_impl<View>(*this, offset, count);
 }
 
 BitSet::ConstView BitSet::subview(std::size_t offset, std::size_t count) const {
-  if (empty()) {
-    return {end(), end()};
-  }
-  std::size_t n = size();
-
-  if (offset > n) {
-    offset = n;
-  }
-
-  std::size_t avail = n - offset;
-
-  if (count == NPOS || count > avail) {
-    count = avail;
-  }
-
-  auto first = begin() + static_cast<std::ptrdiff_t>(offset);
-  auto last = first + static_cast<std::ptrdiff_t>(count);
-
-  return {first, last};
+  return make_subview_impl<ConstView>(*this, offset, count);
 }
 
 void swap(BitSet& lhs, BitSet& rhs) noexcept {

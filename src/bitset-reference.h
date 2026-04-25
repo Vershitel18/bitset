@@ -1,8 +1,6 @@
 #pragma once
 #include "common.h"
 
-#include <strings.h>
-
 #include <cstddef>
 
 namespace ct {
@@ -29,25 +27,19 @@ public:
 
   BitsetReference& operator=(const bool b) {
     if (b) {
-      *_data |= (ct::Word{1} << _index);
+      *_data |= (Word{1} << _index);
     } else {
-      *_data &= ~(ct::Word{1} << _index);
+      *_data &= ~(Word{1} << _index);
     }
     return *this;
   }
 
   operator bool() const {
-    return (*_data >> _index) & ct::Word{1};
+    return (*_data >> _index) & Word{1};
   }
 
-  // bool operator==(bool b) const {
-  //   return (*_data >> _index) & b;
-  // }
-  // bool operator!=(bool b) const {
-  //   return !((*_data >> _index) & b);
-  // }
   BitsetReference& flip() {
-    *_data ^= (ct::Word{1} << _index);
+    *_data ^= (Word{1} << _index);
     return *this;
   }
 };

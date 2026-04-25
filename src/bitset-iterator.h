@@ -6,14 +6,14 @@
 #include <iterator>
 
 namespace ct {
-template <typename TWord>
+template <typename Word>
 struct BitsetIterator {
   using iterator_category = std::random_access_iterator_tag;
   using difference_type = std::ptrdiff_t;
   using value_type = bool;
-  using reference = BitsetReference<TWord>;
+  using reference = BitsetReference<Word>;
   using pointer = void;
-  using word_type = TWord;
+  using word_type = Word;
   using ConstIterator = BitsetIterator<const word_type>;
 
   BitsetIterator() = default;
@@ -29,7 +29,7 @@ struct BitsetIterator {
     return reference(_ptr + ct::word_index(_index), ct::bit_offset(_index));
   }
 
-  TWord* word_ptr() const noexcept {
+  Word* word_ptr() const noexcept {
     return _ptr + ct::word_index(_index);
   }
 
@@ -134,12 +134,12 @@ struct BitsetIterator {
   }
 
 private:
-  TWord* _ptr;
+  Word* _ptr;
   difference_type _index;
   template <typename>
   friend struct BitsetIterator;
 
-  BitsetIterator(TWord* ptr, size_t index)
+  BitsetIterator(Word* ptr, size_t index)
       : _ptr(ptr)
       , _index(static_cast<difference_type>(index)) {}
   friend class BitSet;

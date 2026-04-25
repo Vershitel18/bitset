@@ -4,9 +4,7 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
-#include <limits>
 #include <string>
 
 namespace ct {
@@ -16,7 +14,7 @@ template <typename It>
 class BitSetView {
 public:
   using Value = bool;
-  using Word = typename It::word_type;
+  using Word = ct::Word;
   using Reference = typename It::reference;
   using ConstReference = BitsetReference<const Word>;
   using Iterator = It;
@@ -60,77 +58,34 @@ public:
     swap(_end, other._end);
   }
 
-  template <typename Operation>
-  void unary_operations(Operation op) const {
-    if (empty()) {
-      return;
-    }
-
-    auto ptr_begin = _begin.word_ptr();
-    const auto bit_begin = _begin.bit_offset();
-
-    auto ptr_end = last_word_ptr(_end.word_ptr(), _end.bit_offset());
-    const auto bit_end = _end.bit_offset();
-
-    if (ptr_begin == ptr_end) {
-      const Word right = (bit_end == 0) ? ~Word{0} : ct::low_mask(bit_end);
-      op(*ptr_begin, (~Word{0} << bit_begin) & right);
-      return;
-    }
-
-    if (bit_begin != 0) {
-      op(*ptr_begin, ~Word{0} << bit_begin);
-      ++ptr_begin;
-    }
-
-    while (ptr_begin < ptr_end) {
-      op(*ptr_begin, ~Word{0});
-      ++ptr_begin;
-    }
-
-    if (bit_end != 0) {
-      op(*ptr_end, ct::low_mask(bit_end));
-    } else {
-      op(*ptr_end, ~Word{0});
-    }
+  bool any() const {
+    return unary_operation([](Word word, Word mask) {
+      return (word & mask) != 0;
+    });
   }
 
   bool all() const {
-    bool result = true;
-    unary_operations([&](Word word, Word mask) {
-      if ((word & mask) != mask) {
-        result = false;
-      }
+    return !unary_operation([](Word word, Word mask) {
+      return (word & mask) != mask;
     });
-    return result;
-  }
-
-  bool any() const {
-    bool result = false;
-    unary_operations([&](Word word, Word mask) {
-      if ((word & mask) != 0) {
-        result = true;
-      }
-    });
-    return result;
   }
 
   std::size_t count() const {
     std::size_t result = 0;
-    unary_operations([&](Word word, Word mask) {
+
+    unary_operation([&](Word word, Word mask) {
       result += __builtin_popcountll(word & mask);
+      return false;
     });
+
     return result;
   }
 
   BitSetView subview(std::size_t offset = 0, std::size_t count = NPOS) const {
-    if (empty()) {
+    if (empty() || offset > size()) {
       return {end(), end()};
     }
-    if (offset > size()) {
-      return {end(), end()};
-    }
-    if (count == NPOS || offset + count > size()) {
+    if (count == NPOS || count > size() - offset) {
       count = size() - offset;
     }
     return BitSetView(_begin + offset, _begin + offset + count);
@@ -146,8 +101,8 @@ public:
     Reset
   };
 
-  const View& unary_modefide_operations(Op op) const {
-    unary_operations([&](Word& w, Word mask) {
+  const View& unary_modified_operations(Op op) const {
+    unary_operation([&](Word& w, Word mask) {
       switch (op) {
       case Op::Flip:
         w ^= mask;
@@ -159,39 +114,22 @@ public:
         w &= ~mask;
         break;
       }
+      return false;
     });
+
     return *this;
   }
 
   const View& flip() const {
-    return unary_modefide_operations(Op::Flip);
+    return unary_modified_operations(Op::Flip);
   }
 
   const View& reset() const {
-    return unary_modefide_operations(Op::Reset);
+    return unary_modified_operations(Op::Reset);
   }
 
   const View& set() const {
-    return unary_modefide_operations(Op::Set);
-  }
-
-  template <typename TWord>
-  static TWord* last_word_ptr(TWord* end_word_ptr, std::size_t end_bit_offset) noexcept {
-    return end_bit_offset == 0 ? end_word_ptr - 1 : end_word_ptr;
-  }
-
-  static ct::Word word_build(const Word* current, const Word* last, std::size_t shift) noexcept {
-    ct::Word cur = *current;
-    if (shift == 0) {
-      return cur;
-    }
-
-    ct::Word next = 0;
-    if (current < last) {
-      next = *(current + 1);
-    }
-
-    return (cur >> shift) | (next << (ct::WORD_BITS - shift));
+    return unary_modified_operations(Op::Set);
   }
 
   template <typename Operation>
@@ -200,50 +138,44 @@ public:
       return *this;
     }
 
-    const std::size_t dst_bit = begin().bit_offset();
-    std::size_t src_bit = other.begin().bit_offset();
-    const std::size_t bit_count = size();
+    const std::size_t bit_index_this = begin().bit_offset();
+    std::size_t bit_index_other = other.begin().bit_offset();
+    std::size_t bit_count = size();
 
     Word* p1 = begin().word_ptr();
     const Word* p2 = other.begin().word_ptr();
     const auto end2 = other.end();
     const Word* last2 = last_word_ptr(end2.word_ptr(), end2.bit_offset());
 
-    auto apply_masked = [&](Word& dst, Word mask, Word rhs) {
+    auto word_masked = [&](Word& dst, Word mask, Word rhs) {
       dst = (dst & ~mask) | (op(dst, rhs) & mask);
     };
 
-    auto rhs_word = [&]() {
-      return word_build(p2, last2, src_bit);
-    };
-
-    std::size_t remaining = bit_count;
-
     // Обработка головы: если первое слово частичное
-    if (dst_bit != 0) {
-      const std::size_t bits = std::min<std::size_t>(remaining, 64 - dst_bit);
-      apply_masked(*p1, ct::low_mask(bits) << dst_bit, rhs_word() << dst_bit);
-      remaining -= bits;
-      src_bit += bits;
-      p2 += src_bit / 64;
-      src_bit %= 64;
+    if (bit_index_this != 0) {
+      const std::size_t bits = std::min<std::size_t>(bit_count, WORD_BITS - bit_index_this);
+      word_masked(*p1, ct::low_mask(bits) << bit_index_this, word_build(p2, last2, bit_index_other) << bit_index_this);
+      bit_count -= bits;
+      bit_index_other += bits;
+      p2 += word_index(bit_index_other);
+      bit_index_other = bit_offset(bit_index_other);
       ++p1;
     }
 
     // Обработка полных слов
-    while (remaining >= 64) {
-      *p1 = op(*p1, rhs_word());
-      remaining -= 64;
+    while (bit_count >= WORD_BITS) {
+      *p1 = op(*p1, word_build(p2, last2, bit_index_other));
+      bit_count -= WORD_BITS;
       ++p1;
 
-      src_bit += 64;
-      p2 += src_bit / 64;
-      src_bit %= 64;
+      bit_index_other += WORD_BITS;
+      p2 += word_index(bit_index_other);
+      bit_index_other = bit_offset(bit_index_other);
     }
 
     // Обработка хвоста: если последнее слово частичное
-    if (remaining != 0) {
-      apply_masked(*p1, ct::low_mask(remaining), rhs_word());
+    if (bit_count != 0) {
+      word_masked(*p1, ct::low_mask(bit_count), word_build(p2, last2, bit_index_other));
     }
 
     return *this;
@@ -260,54 +192,41 @@ public:
 
     std::size_t lhs_bit = begin().bit_offset();
     std::size_t rhs_bit = other.begin().bit_offset();
-    std::size_t remaining = size();
+    std::size_t bit_count = size();
 
     const Word* p1 = begin().word_ptr();
     const Word* p2 = other.begin().word_ptr();
     const auto end2 = other.end();
     const Word* last2 = last_word_ptr(end2.word_ptr(), end2.bit_offset());
 
-    auto rhs_word = [&]() {
-      return word_build(p2, last2, rhs_bit);
-    };
-
     if (lhs_bit != 0) {
-      const std::size_t bits = std::min<std::size_t>(remaining, 64 - lhs_bit);
+      const std::size_t bits = std::min<std::size_t>(bit_count, WORD_BITS - lhs_bit);
       const Word mask = ct::low_mask(bits) << lhs_bit;
-      if (!op(*p1 & mask, rhs_word() << lhs_bit & mask)) {
+      if (!op(*p1 & mask, (word_build(p2, last2, rhs_bit) << lhs_bit) & mask)) {
         return false;
       }
-      remaining -= bits;
+      bit_count -= bits;
       rhs_bit += bits;
-      p2 += rhs_bit / 64;
-      rhs_bit %= 64;
+      p2 += word_index(rhs_bit);
+      rhs_bit = bit_offset(rhs_bit);
       ++p1;
     }
-
-    // while (remaining >= 64) {
-    //   if (!op(*p1, rhs_word())) {
-    //     return false;
-    //   }
-    //   remaining -= 64;
-    //   ++p1;
-    //   ++p2;
-    // }
-    while (remaining >= 64) {
-      if (!op(*p1, rhs_word())) {
+    while (bit_count >= WORD_BITS) {
+      if (!op(*p1, word_build(p2, last2, rhs_bit))) {
         return false;
       }
 
-      remaining -= 64;
+      bit_count -= WORD_BITS;
       ++p1;
 
-      rhs_bit += 64;
-      p2 += rhs_bit / 64;
-      rhs_bit %= 64;
+      rhs_bit += WORD_BITS;
+      p2 += word_index(rhs_bit);
+      rhs_bit = bit_offset(rhs_bit);
     }
 
-    if (remaining != 0) {
-      const Word mask = ct::low_mask(remaining);
-      if (!op(*p1 & mask, rhs_word() & mask)) {
+    if (bit_count != 0) {
+      const Word mask = ct::low_mask(bit_count);
+      if (!op(*p1 & mask, word_build(p2, last2, rhs_bit) & mask)) {
         return false;
       }
     }
@@ -336,6 +255,60 @@ public:
 private:
   It _begin;
   It _end;
+
+  template <typename Operation>
+  bool unary_operation(Operation op) const {
+    if (empty()) {
+      return false;
+    }
+
+    auto ptr_begin = _begin.word_ptr();
+    const auto bit_begin = _begin.bit_offset();
+
+    auto ptr_end = last_word_ptr(_end.word_ptr(), _end.bit_offset());
+    const auto bit_end = _end.bit_offset();
+
+    if (ptr_begin == ptr_end) {
+      const Word right = (bit_end == 0) ? ~Word{0} : ct::low_mask(bit_end);
+      return op(*ptr_begin, (~Word{0} << bit_begin) & right);
+    }
+
+    if (bit_begin != 0) {
+      if (op(*ptr_begin, ~Word{0} << bit_begin)) {
+        return true;
+      }
+      ++ptr_begin;
+    }
+
+    while (ptr_begin < ptr_end) {
+      if (op(*ptr_begin, ~Word{0})) {
+        return true;
+      }
+      ++ptr_begin;
+    }
+
+    const Word last_mask = (bit_end == 0) ? ~Word{0} : ct::low_mask(bit_end);
+    return op(*ptr_end, last_mask);
+  }
+
+  template <typename TWord>
+  static TWord* last_word_ptr(TWord* end_word_ptr, std::size_t end_bit_offset) noexcept {
+    return end_bit_offset == 0 ? end_word_ptr - 1 : end_word_ptr;
+  }
+
+  static Word word_build(const Word* word, const Word* last_word, std::size_t shift) noexcept {
+    Word word_one = *word;
+    if (shift == 0) {
+      return word_one;
+    }
+
+    Word next = 0;
+    if (word < last_word) {
+      next = *(word + 1);
+    }
+
+    return (word_one >> shift) | (next << (WORD_BITS - shift));
+  }
 
 public:
   BitSetView(It begin, It end)

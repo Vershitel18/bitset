@@ -80,6 +80,21 @@ public:
   ConstView subview(std::size_t offset = 0, std::size_t count = NPOS) const;
 
 private:
+  template <typename ViewType, typename Self>
+  static ViewType make_subview_impl(Self& self, std::size_t offset, std::size_t count) {
+    if (offset > self.size()) {
+      return {self.end(), self.end()};
+    }
+
+    if (count == BitSet::NPOS || count > self.size() - offset) {
+      count = self.size() - offset;
+    }
+
+    auto first = self.begin() + static_cast<std::ptrdiff_t>(offset);
+    auto last = first + static_cast<std::ptrdiff_t>(count);
+    return {first, last};
+  }
+
   size_t _size;
   Word* _data;
 };
