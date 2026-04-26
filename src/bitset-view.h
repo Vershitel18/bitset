@@ -150,59 +150,6 @@ public:
     });
   }
 
-private:
-  It _begin;
-  It _end;
-
-  template <typename Operation>
-  const View& binary_operation(const ConstView& other, Operation op) const {
-    if (empty()) {
-      return *this;
-    }
-
-    const std::size_t bit_index_this = begin().bit_offset();
-    std::size_t bit_index_other = other.begin().bit_offset();
-    std::size_t bit_count = size();
-
-    Word* p1 = begin().word_ptr();
-    const Word* p2 = other.begin().word_ptr();
-    const auto end2 = other.end();
-    const Word* last2 = last_word_ptr(end2.word_ptr(), end2.bit_offset());
-
-    auto word_masked = [&](Word& lhs, Word mask, Word rhs) {
-      lhs = (lhs & ~mask) | (op(lhs, rhs) & mask);
-    }; // лямбда функция для применения маски
-
-    // Обработка головы: если первое слово частичное
-    if (bit_index_this != 0) {
-      const std::size_t bits = std::min<std::size_t>(bit_count, WORD_BITS - bit_index_this);
-      word_masked(*p1, ct::low_mask(bits) << bit_index_this, word_build(p2, last2, bit_index_other) << bit_index_this);
-      bit_count -= bits;
-      bit_index_other += bits;
-      p2 += word_index(bit_index_other);
-      bit_index_other = bit_offset(bit_index_other);
-      ++p1;
-    }
-
-    // Обработка полных слов
-    while (bit_count >= WORD_BITS) {
-      *p1 = op(*p1, word_build(p2, last2, bit_index_other));
-      bit_count -= WORD_BITS;
-      ++p1;
-
-      bit_index_other += WORD_BITS;
-      p2 += word_index(bit_index_other);
-      bit_index_other = bit_offset(bit_index_other);
-    }
-
-    // Обработка хвоста: если последнее слово частичное
-    if (bit_count != 0) {
-      word_masked(*p1, ct::low_mask(bit_count), word_build(p2, last2, bit_index_other));
-    }
-
-    return *this;
-  }
-
   template <typename Operation>
   bool compare_operation(const ConstView& other, Operation op) const {
     if (size() != other.size()) {
@@ -254,6 +201,59 @@ private:
     }
 
     return true;
+  }
+
+private:
+  It _begin;
+  It _end;
+
+  template <typename Operation>
+  const View& binary_operation(const ConstView& other, Operation op) const {
+    if (empty()) {
+      return *this;
+    }
+
+    const std::size_t bit_index_this = begin().bit_offset();
+    std::size_t bit_index_other = other.begin().bit_offset();
+    std::size_t bit_count = size();
+
+    Word* p1 = begin().word_ptr();
+    const Word* p2 = other.begin().word_ptr();
+    const auto end2 = other.end();
+    const Word* last2 = last_word_ptr(end2.word_ptr(), end2.bit_offset());
+
+    auto word_masked = [&](Word& lhs, Word mask, Word rhs) {
+      lhs = (lhs & ~mask) | (op(lhs, rhs) & mask);
+    }; // лямбда функция для применения маски
+
+    // Обработка головы: если первое слово частичное
+    if (bit_index_this != 0) {
+      const std::size_t bits = std::min<std::size_t>(bit_count, WORD_BITS - bit_index_this);
+      word_masked(*p1, ct::low_mask(bits) << bit_index_this, word_build(p2, last2, bit_index_other) << bit_index_this);
+      bit_count -= bits;
+      bit_index_other += bits;
+      p2 += word_index(bit_index_other);
+      bit_index_other = bit_offset(bit_index_other);
+      ++p1;
+    }
+
+    // Обработка полных слов
+    while (bit_count >= WORD_BITS) {
+      *p1 = op(*p1, word_build(p2, last2, bit_index_other));
+      bit_count -= WORD_BITS;
+      ++p1;
+
+      bit_index_other += WORD_BITS;
+      p2 += word_index(bit_index_other);
+      bit_index_other = bit_offset(bit_index_other);
+    }
+
+    // Обработка хвоста: если последнее слово частичное
+    if (bit_count != 0) {
+      word_masked(*p1, ct::low_mask(bit_count), word_build(p2, last2, bit_index_other));
+    }
+
+    return *this;
   }
 
   template <typename Operation>
