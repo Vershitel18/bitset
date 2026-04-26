@@ -28,7 +28,7 @@ public:
   ~BitSetView() = default;
 
   operator ConstView() const {
-    return ConstView(_begin, _end); // хзхз
+    return ConstView(_begin, _end);
   }
 
   It begin() const {
@@ -132,6 +132,28 @@ public:
     return unary_modified_operations(Op::Set);
   }
 
+  const View& operator&=(const ConstView& other) const {
+    return binary_operation(other, [](Word a, Word b) {
+      return a & b;
+    });
+  }
+
+  const View& operator|=(const ConstView& other) const {
+    return binary_operation(other, [](Word a, Word b) {
+      return a | b;
+    });
+  }
+
+  const View& operator^=(const ConstView& other) const {
+    return binary_operation(other, [](Word a, Word b) {
+      return a ^ b;
+    });
+  }
+
+private:
+  It _begin;
+  It _end;
+
   template <typename Operation>
   const View& binary_operation(const ConstView& other, Operation op) const {
     if (empty()) {
@@ -147,9 +169,9 @@ public:
     const auto end2 = other.end();
     const Word* last2 = last_word_ptr(end2.word_ptr(), end2.bit_offset());
 
-    auto word_masked = [&](Word& dst, Word mask, Word rhs) {
-      dst = (dst & ~mask) | (op(dst, rhs) & mask);
-    };
+    auto word_masked = [&](Word& lhs, Word mask, Word rhs) {
+      lhs = (lhs & ~mask) | (op(lhs, rhs) & mask);
+    }; // лямбда функция для применения маски
 
     // Обработка головы: если первое слово частичное
     if (bit_index_this != 0) {
@@ -234,28 +256,6 @@ public:
     return true;
   }
 
-  const View& operator&=(const ConstView& other) const {
-    return binary_operation(other, [](Word a, Word b) {
-      return a & b;
-    });
-  }
-
-  const View& operator|=(const ConstView& other) const {
-    return binary_operation(other, [](Word a, Word b) {
-      return a | b;
-    });
-  }
-
-  const View& operator^=(const ConstView& other) const {
-    return binary_operation(other, [](Word a, Word b) {
-      return a ^ b;
-    });
-  }
-
-private:
-  It _begin;
-  It _end;
-
   template <typename Operation>
   bool unary_operation(Operation op) const {
     if (empty()) {
@@ -294,8 +294,9 @@ private:
   template <typename TWord>
   static TWord* last_word_ptr(TWord* end_word_ptr, std::size_t end_bit_offset) noexcept {
     return end_bit_offset == 0 ? end_word_ptr - 1 : end_word_ptr;
-  }
+  } // Получаем указатель на последнее валидное слово(если bit_offset == 0, значит искомое слово предыдущее)
 
+  // функция сбори слова из двух слов, с проверко выхода за гранницы(last_word)
   static Word word_build(const Word* word, const Word* last_word, std::size_t shift) noexcept {
     Word word_one = *word;
     if (shift == 0) {

@@ -82,17 +82,13 @@ public:
 private:
   template <typename ViewType, typename Self>
   static ViewType make_subview_impl(Self& self, std::size_t offset, std::size_t count) {
-    if (offset > self.size()) {
+    if (self.empty() || offset > self.size()) {
       return {self.end(), self.end()};
     }
-
-    if (count == BitSet::NPOS || count > self.size() - offset) {
+    if (count == NPOS || count > self.size() - offset) {
       count = self.size() - offset;
     }
-
-    auto first = self.begin() + static_cast<std::ptrdiff_t>(offset);
-    auto last = first + static_cast<std::ptrdiff_t>(count);
-    return {first, last};
+    return {self.begin() + offset, self.begin() + offset + count};
   }
 
   size_t _size;

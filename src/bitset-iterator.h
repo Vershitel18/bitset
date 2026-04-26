@@ -37,10 +37,6 @@ struct BitsetIterator {
     return ct::bit_offset(_index);
   }
 
-  std::size_t global_index() const noexcept {
-    return _index;
-  }
-
   reference operator[](const difference_type idx) const {
     return *(*this + idx);
   }
@@ -71,7 +67,7 @@ struct BitsetIterator {
     return other + n;
   }
 
-  friend ptrdiff_t operator-(const BitsetIterator& lhs, const BitsetIterator& rhs) {
+  friend difference_type operator-(const BitsetIterator& lhs, const BitsetIterator& rhs) {
     return (lhs._index - rhs._index);
   }
 
@@ -97,40 +93,12 @@ struct BitsetIterator {
     return tmp;
   }
 
+  std::strong_ordering operator<=>(const BitsetIterator& other) const {
+    return _index <=> other._index;
+  }
+
   friend bool operator==(const BitsetIterator& lhs, const BitsetIterator& rhs) {
     return lhs._ptr == rhs._ptr && lhs._index == rhs._index;
-  }
-
-  friend bool operator!=(const BitsetIterator& lhs, const BitsetIterator& rhs) {
-    return !(lhs == rhs);
-  }
-
-  friend bool operator<(const BitsetIterator& lhs, const BitsetIterator& rhs) {
-    if (lhs._ptr == rhs._ptr) {
-      return lhs._index < rhs._index;
-    }
-    return lhs._ptr < rhs._ptr;
-  }
-
-  friend bool operator<=(const BitsetIterator& lhs, const BitsetIterator& rhs) {
-    if (lhs._ptr == rhs._ptr) {
-      return lhs._index <= rhs._index;
-    }
-    return lhs._ptr <= rhs._ptr;
-  }
-
-  friend bool operator>(const BitsetIterator& lhs, const BitsetIterator& rhs) {
-    if (lhs._ptr == rhs._ptr) {
-      return lhs._index > rhs._index;
-    }
-    return lhs._ptr > rhs._ptr;
-  }
-
-  friend bool operator>=(const BitsetIterator& lhs, const BitsetIterator& rhs) {
-    if (lhs._ptr == rhs._ptr) {
-      return lhs._index >= rhs._index;
-    }
-    return lhs._ptr >= rhs._ptr;
   }
 
 private:
