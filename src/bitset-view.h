@@ -74,7 +74,7 @@ public:
     std::size_t result = 0;
 
     unary_operation([&](Word word, Word mask) {
-      result += __builtin_popcountll(word & mask);
+      result += std::popcount(word & mask);
       return false;
     });
 
@@ -95,25 +95,10 @@ public:
     lhs.swap(rhs);
   }
 
-  enum class Op {
-    Flip,
-    Set,
-    Reset
-  };
-
+  template <typename Op>
   const View& unary_modified_operations(Op op) const {
     unary_operation([&](Word& w, Word mask) {
-      switch (op) {
-      case Op::Flip:
-        w ^= mask;
-        break;
-      case Op::Set:
-        w |= mask;
-        break;
-      case Op::Reset:
-        w &= ~mask;
-        break;
-      }
+      op(w, mask);
       return false;
     });
 
@@ -121,15 +106,21 @@ public:
   }
 
   const View& flip() const {
-    return unary_modified_operations(Op::Flip);
+    return unary_modified_operations([](Word& w, Word mask) {
+      w ^= mask;
+    });
   }
 
   const View& reset() const {
-    return unary_modified_operations(Op::Reset);
+    return unary_modified_operations([](Word& w, Word mask) {
+      w &= ~mask;
+    });
   }
 
   const View& set() const {
-    return unary_modified_operations(Op::Set);
+    return unary_modified_operations([](Word& w, Word mask) {
+      w |= mask;
+    });
   }
 
   const View& operator&=(const ConstView& other) const {
