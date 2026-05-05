@@ -125,19 +125,19 @@ public:
 
   const View& operator&=(const ConstView& other) const {
     return binary_operation(other, [](Word a, Word b) {
-      return a & b;
+      return std::bit_and<>()(a, b);
     });
   }
 
   const View& operator|=(const ConstView& other) const {
     return binary_operation(other, [](Word a, Word b) {
-      return a | b;
+      return std::bit_or<>()(a, b);
     });
   }
 
   const View& operator^=(const ConstView& other) const {
     return binary_operation(other, [](Word a, Word b) {
-      return a ^ b;
+      return std::bit_xor<>()(a, b);
     });
   }
 
