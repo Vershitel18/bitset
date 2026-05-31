@@ -124,21 +124,15 @@ public:
   }
 
   const View& operator&=(const ConstView& other) const {
-    return binary_operation(other, [](Word a, Word b) {
-      return std::bit_and<>()(a, b);
-    });
+    return binary_operation(other, std::bit_and<>());
   }
 
   const View& operator|=(const ConstView& other) const {
-    return binary_operation(other, [](Word a, Word b) {
-      return std::bit_or<>()(a, b);
-    });
+    return binary_operation(other, std::bit_or<>());
   }
 
   const View& operator^=(const ConstView& other) const {
-    return binary_operation(other, [](Word a, Word b) {
-      return std::bit_xor<>()(a, b);
-    });
+    return binary_operation(other, std::bit_xor<>());
   }
 
   template <typename Operation>
